@@ -1,0 +1,60 @@
+#version 330 core
+
+// Input vertex data, different for all executions of this shader.
+layout(location = 0) in vec3 vertexPosition_modelspace1;
+layout(location = 1) in vec2 vertexUV1;
+layout(location = 2) in vec3 vertexNormal_modelspace1;
+layout(location = 3) in vec3 vertexPosition_modelspace2;
+layout(location = 4) in vec2 vertexUV2;
+layout(location = 5) in vec3 vertexNormal_modelspace2;
+
+// Output data ; will be interpolated for each fragment.
+out vec2 UV;
+out vec3 Position_worldspace;
+out vec3 Normal_cameraspace;
+out vec3 EyeDirection_cameraspace;
+out vec3 LightDirection_cameraspace;
+
+// Values that stay constant for the whole mesh.
+uniform mat4 MVP;
+uniform mat4 V;
+uniform mat4 M;
+uniform vec3 LightPosition_worldspace;
+uniform float interp;
+uniform bool scaled;
+
+void main(){
+	vec3 vertexPosition_modelspace;
+	vertexPosition_modelspace.x = vertexPosition_modelspace1.x + interp * (vertexPosition_modelspace2.x - vertexPosition_modelspace1.x);
+	vertexPosition_modelspace.y = vertexPosition_modelspace1.y + interp * (vertexPosition_modelspace2.y - vertexPosition_modelspace1.y);
+	vertexPosition_modelspace.z = vertexPosition_modelspace1.z + interp * (vertexPosition_modelspace2.z - vertexPosition_modelspace1.z);
+	
+	vec3 vertexNormal_modelspace;
+	vertexNormal_modelspace.x = vertexNormal_modelspace1.x + interp * (vertexNormal_modelspace2.x - vertexNormal_modelspace1.x);
+	vertexNormal_modelspace.y = vertexNormal_modelspace1.y + interp * (vertexNormal_modelspace2.y - vertexNormal_modelspace1.y);
+	vertexNormal_modelspace.z = vertexNormal_modelspace1.z + interp * (vertexNormal_modelspace2.z - vertexNormal_modelspace1.z);
+	
+	// Output position of the vertex, in clip space : MVP * position
+	gl_Position =  MVP * vec4(vertexPosition_modelspace,1);
+	
+	// Position of the vertex, in worldspace : M * position
+	Position_worldspace = (M * vec4(vertexPosition_modelspace,1)).xyz;
+	
+	// Vector that goes from the vertex to the camera, in camera space.
+	// In camera space, the camera is at the origin (0,0,0).
+	EyeDirection_cameraspace = vec3(0,0,0) - ( V * M * vec4(vertexPosition_modelspace,1)).xyz;
+
+	// Vector that goes from the vertex to the light, in camera space
+	vec3 LightPosition_cameraspace = ( V * vec4(LightPosition_worldspace,1)).xyz;
+	LightDirection_cameraspace = LightPosition_cameraspace + EyeDirection_cameraspace;
+	
+	// Normal of the the vertex, in camera space
+	Normal_cameraspace = ( V * M * vec4(vertexNormal_modelspace,0)).xyz; // Only correct if ModelMatrix does not scale the model ! Use its inverse transpose if not.
+	if(scaled == true)
+	{
+	Normal_cameraspace = ( V * inverse(transpose(M)) * vec4(vertexNormal_modelspace,0)).xyz; // Only correct if ModelMatrix does not scale the model ! Use its inverse transpose if not.
+	}
+	// UV of the vertex. No special space for this one.
+	UV = vertexUV1;
+}
+
